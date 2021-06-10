@@ -1,0 +1,88 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta http-equiv=x-ua-compatible content="IE=edge"><title>Deliver Your Software by Producing a Single FASL File</title><meta name=author content="Tianyu Gu"><link rel=stylesheet href=/css/style.css><link rel="shortcut icon" href=/img/favicon.ico><link rel=preconnect href=https://fonts.gstatic.com><link href="https://fonts.googleapis.com/css2?family=Fira+Code&family=Xanh+Mono&display=swap" rel=stylesheet><style type=text/css>body{font-family:monospace}code{color:#000;font-family:fira code,monospace;font-size:small}blockquote{font-family:xanh mono,monospace}figure{margin-top:3%;margin-bottom:3%;margin-left:5%;margin-right:5%}table,th,td{border:1px solid #fff}</style></head><body><header>=========<br>== <a href=https://macdavid313.xyz/>gty</a> ==<br>=========<div style=float:right>You gotta go away to come back.</div><br><p><nav><a href=/about/><b>about</b></a>.
+<a href=/wiki/><b>wiki</b></a>.
+<a href=/posts/><b>posts</b></a>.
+<a href=/tags/><b>tags</b></a>.
+<a href=/cat/><b>cat</b></a>.
+<a href=/playlists/><b>playlists</b></a>.</nav></p></header><main><article><h1>Deliver Your Software by Producing a Single FASL File</h1><b><time>Apr 20, 2016, Wednesday</time></b>
+<a href=/tags/lisp>lisp</a><div><p>From the very beginning, just like other ‘rookies’, I’m so confused why a <code>Hello World</code> executable file is so big in Common Lisp. Among all the implementations, of course you can argue that ECL can produce a small one, however, except in ECL, that binary file’s size is usually more than 30 MBs and even up to 50 MBs in the case of SBCL (on a 64bit platform).</p><p>It didn’t take too long till I realized it’s not fair to argue about that. While C language already has GCC ‘laying’ down on the operating system, Common Lisp’s binary contains all the components like the debuger and even a full-futured compiler. The run time is huge. In this <a href=http://fare.livejournal.com/184127.html>article</a>, <code>François-René Rideau</code> had given some points about how to avoid producing a lot of binaries which could be a serious space issue. He suggestes that one binary can provide several entries, and for each entry, one specific entry function will be invoked. This actually doesn’t solve the whole problem but could be taken as a solution that just works.</p><p>However, that kind of feature was provided with his Common Lisp building tool <code>cl-launch</code>. One can certainly achieve that without <code>cl-launch</code>, for example:</p><div class=highlight><pre style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-lisp data-lang=lisp>(<span style=color:#007020>defun</span> <span style=color:#bb60d5>main</span> (<span style=color:#bb60d5>args</span>)
+  (<span style=color:#007020>when</span> (<span style=color:#bb60d5>predicate-1</span> (<span style=color:#06287e>first</span> <span style=color:#bb60d5>args</span>))
+    (<span style=color:#bb60d5>do-something-case-1</span>))
+  (<span style=color:#007020>when</span> (<span style=color:#bb60d5>predicate-2</span> (<span style=color:#06287e>first</span> <span style=color:#bb60d5>args</span>))
+    (<span style=color:#bb60d5>do-something-case-2</span>))
+  <span style=color:#60a0b0;font-style:italic>;; ....... do more things ......</span>
+  )
+</code></pre></div><p>But this looks quite ugly. You mixed different apps or libs within one top-level <code>main</code> function, that’s odd, isn’t it?</p><p>Therefore, I suggest using FASL files to deliver your software. Compared to the approach of using a binary, the size of FASL files are usually much smaller, but the drawback is obviously clients will have to install a Lisp run time to use your software. As all I know so far, engineers from <code>[Franz Inc.](http://franz.com/)</code> take this approach to deliver their products, for example, the <code>[AllegroGraph](http://franz.com/agraph/support/documentation/current/index.html)</code>.</p><p>Here is a piece of code that shows how to combine several fasls into a single file. It delivers <code>cl-ppcre</code> as a library. If you think it’s too painful without using ASDF, just go check out <code>compile-bundle-op</code> and <code>monolithic-compile-bundle-op</code> from the <a href=https://common-lisp.net/project/asdf/asdf.html#Operations>documentation</a> page, that will help.</p><div class=highlight><pre style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-lisp data-lang=lisp><span style=color:#60a0b0;font-style:italic>;;;; load.lisp</span>
+<span style=color:#60a0b0;font-style:italic>;;;; A example shows the idea how to combine several fasls together</span>
+<span style=color:#60a0b0;font-style:italic>;;;; so that you can delivery your code as a library</span>
+
+<span style=color:#60a0b0;font-style:italic>;;; suppose now we have a directory whose structure looks like this:</span>
+<span style=color:#60a0b0;font-style:italic>#|
+</span><span style=color:#60a0b0;font-style:italic>├── cl-ppcre-2.0.11
+</span><span style=color:#60a0b0;font-style:italic>│   ├── CHANGELOG
+</span><span style=color:#60a0b0;font-style:italic>│   ├── README.md
+</span><span style=color:#60a0b0;font-style:italic>│   ├── api.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── charmap.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── charset.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── chartest.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── cl-ppcre-unicode
+</span><span style=color:#60a0b0;font-style:italic>│   │   ├── packages.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   │   └── resolver.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── cl-ppcre-unicode.asd
+</span><span style=color:#60a0b0;font-style:italic>│   ├── cl-ppcre.asd
+</span><span style=color:#60a0b0;font-style:italic>│   ├── closures.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── convert.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── doc
+</span><span style=color:#60a0b0;font-style:italic>│   │   └── index.html
+</span><span style=color:#60a0b0;font-style:italic>│   ├── errors.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── lexer.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── optimize.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── packages.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── parser.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── regex-class-util.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── regex-class.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── repetition-closures.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── scanner.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── specials.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   ├── test
+</span><span style=color:#60a0b0;font-style:italic>│   │   ├── packages.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   │   ├── perl-tests.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   │   ├── perltest.pl
+</span><span style=color:#60a0b0;font-style:italic>│   │   ├── perltestdata
+</span><span style=color:#60a0b0;font-style:italic>│   │   ├── perltestinput
+</span><span style=color:#60a0b0;font-style:italic>│   │   ├── simple
+</span><span style=color:#60a0b0;font-style:italic>│   │   ├── tests.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   │   ├── unicode-tests.lisp
+</span><span style=color:#60a0b0;font-style:italic>│   │   └── unicodetestdata
+</span><span style=color:#60a0b0;font-style:italic>│   └── util.lisp
+</span><span style=color:#60a0b0;font-style:italic>└── load.lisp
+</span><span style=color:#60a0b0;font-style:italic>|#</span>
+<span style=color:#60a0b0;font-style:italic>;;; we first sepcify the order when compiling file, than write all the fasls into a whole single one.</span>
+(<span style=color:#007020>in-package</span> <span style=color:#517918>#:cl-user</span>)
+
+(<span style=color:#007020>defparameter</span> *cl-ppcre-files*
+  <span style=color:#666>&#39;</span>(<span style=color:#4070a0>&#34;packages&#34;</span> <span style=color:#4070a0>&#34;specials&#34;</span> <span style=color:#4070a0>&#34;util&#34;</span> <span style=color:#4070a0>&#34;errors&#34;</span> <span style=color:#4070a0>&#34;charset&#34;</span>
+    <span style=color:#4070a0>&#34;charmap&#34;</span> <span style=color:#4070a0>&#34;chartest&#34;</span> <span style=color:#4070a0>&#34;lexer&#34;</span> <span style=color:#4070a0>&#34;parser&#34;</span> <span style=color:#4070a0>&#34;regex-class&#34;</span>
+    <span style=color:#4070a0>&#34;regex-class-util&#34;</span> <span style=color:#4070a0>&#34;convert&#34;</span> <span style=color:#4070a0>&#34;optimize&#34;</span> <span style=color:#4070a0>&#34;closures&#34;</span>
+    <span style=color:#4070a0>&#34;repetition-closures&#34;</span> <span style=color:#4070a0>&#34;scanner&#34;</span> <span style=color:#4070a0>&#34;api&#34;</span>))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>copy-fasls-to</span> (<span style=color:#bb60d5>files</span> <span style=color:#bb60d5>destination</span> <span style=color:#007020;font-weight:700>&amp;optional</span> (<span style=color:#bb60d5>prefix</span> <span style=color:#4070a0>&#34;&#34;</span>))
+  (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>buffer</span> (<span style=color:#06287e>make-array</span> <span style=color:#40a070>4096</span> <span style=color:#517918>:element-type</span> <span style=color:#666>&#39;</span>(<span style=color:#902000>unsigned-byte</span> <span style=color:#40a070>8</span>))))
+    (<span style=color:#007020>with-open-file</span> (<span style=color:#bb60d5>out</span> <span style=color:#bb60d5>destination</span> <span style=color:#517918>:direction</span> <span style=color:#517918>:output</span> <span style=color:#517918>:element-type</span> <span style=color:#666>&#39;</span>(<span style=color:#902000>unsigned-byte</span> <span style=color:#40a070>8</span>)
+                         <span style=color:#517918>:if-does-not-exist</span> <span style=color:#517918>:create</span> <span style=color:#517918>:if-exists</span> <span style=color:#517918>:supersede</span>)
+      (<span style=color:#007020>dolist</span> (<span style=color:#bb60d5>file</span> <span style=color:#bb60d5>files</span>)
+        (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>filename</span> (<span style=color:#06287e>concatenate</span> <span style=color:#517918>&#39;string</span> <span style=color:#bb60d5>prefix</span> <span style=color:#bb60d5>file</span> <span style=color:#4070a0>&#34;.lisp&#34;</span>))
+              (<span style=color:#bb60d5>fasl</span> (<span style=color:#06287e>concatenate</span> <span style=color:#517918>&#39;string</span> <span style=color:#bb60d5>prefix</span> <span style=color:#bb60d5>file</span> <span style=color:#4070a0>&#34;.fasl&#34;</span>)))
+          (<span style=color:#06287e>compile-file</span> <span style=color:#bb60d5>filename</span>)
+          (<span style=color:#06287e>load</span> <span style=color:#bb60d5>fasl</span>)
+          (<span style=color:#007020>with-open-file</span> (<span style=color:#bb60d5>in</span> <span style=color:#bb60d5>fasl</span> <span style=color:#517918>:element-type</span> <span style=color:#666>&#39;</span>(<span style=color:#902000>unsigned-byte</span> <span style=color:#40a070>8</span>))
+            (<span style=color:#007020>loop</span> <span style=color:#bb60d5>for</span> <span style=color:#06287e>count</span> <span style=color:#06287e>=</span> (<span style=color:#06287e>read-sequence</span> <span style=color:#bb60d5>buffer</span> <span style=color:#bb60d5>in</span>)
+               <span style=color:#bb60d5>while</span> (<span style=color:#06287e>not</span> (<span style=color:#06287e>zerop</span> <span style=color:#06287e>count</span>)) <span style=color:#007020>do</span> (<span style=color:#06287e>write-sequence</span> <span style=color:#bb60d5>buffer</span> <span style=color:#bb60d5>out</span> <span style=color:#517918>:end</span> <span style=color:#06287e>count</span>))))))))
+
+<span style=color:#60a0b0;font-style:italic>;;; after loaded, just issue</span>
+<span style=color:#60a0b0;font-style:italic>;;; (copy-fasls-to *cl-ppcre-files* &#34;/tmp/fasl/cl-ppcre.fasl&#34; &#34;/tmp/fasl/cl-ppcre-2.0.11/&#34;) in the repl</span>
+<span style=color:#60a0b0;font-style:italic>;;; it will produce a single `cl-ppcre.fasl&#39; file and you can load whenever you want</span>
+</code></pre></div></div></article></main><aside><div><div><h3>LATEST POSTS</h3></div><div><ul><li><a href=/posts/10-years-after-gaokao/>十年后，回望高考和高中的时光</a></li><li><a href=/posts/wind-river-movie/>猎凶风河谷（电影）</a></li><li><a href=/posts/ibm-model-m-arrived/>IBM Model M 来了</a></li><li><a href=/posts/from-push-up-to-pull-up/>从"俯卧撑"到"引体向上"</a></li><li><a href=/posts/lisp-while-lang/>Common Lisp Solution to While Language</a></li></ul></div></div></aside><footer><p>&copy; 2021 <a href=https://macdavid313.xyz/><b>gty</b></a>.
+<a href=mailto:macdavid313@gmail.com><b>email</b></a>.
+<a href=/assets/pgp-public.txt><b>PGP</b></a>.
+<a href=https://github.com/macdavid313><b>github</b></a>.
+<a href=https://www.instagram.com/davidgu357/><b>instagram</b></a>.</p></footer></body></html>

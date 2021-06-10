@@ -1,0 +1,507 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta http-equiv=x-ua-compatible content="IE=edge"><title>Common Lisp Solution to While Language</title><meta name=author content="Tianyu Gu"><link rel=stylesheet href=/css/style.css><link rel="shortcut icon" href=/img/favicon.ico><link rel=preconnect href=https://fonts.gstatic.com><link href="https://fonts.googleapis.com/css2?family=Fira+Code&family=Xanh+Mono&display=swap" rel=stylesheet><style type=text/css>body{font-family:monospace}code{color:#000;font-family:fira code,monospace;font-size:small}blockquote{font-family:xanh mono,monospace}figure{margin-top:3%;margin-bottom:3%;margin-left:5%;margin-right:5%}table,th,td{border:1px solid #fff}</style></head><body><header>=========<br>== <a href=https://macdavid313.xyz/>gty</a> ==<br>=========<div style=float:right>You gotta go away to come back.</div><br><p><nav><a href=/about/><b>about</b></a>.
+<a href=/wiki/><b>wiki</b></a>.
+<a href=/posts/><b>posts</b></a>.
+<a href=/tags/><b>tags</b></a>.
+<a href=/cat/><b>cat</b></a>.
+<a href=/playlists/><b>playlists</b></a>.</nav></p></header><main><article><h1>Common Lisp Solution to While Language</h1><b><time>Apr 12, 2019, Friday</time></b>
+<a href=/tags/lisp>lisp,</a>
+<a href=/tags/hackerrank>hackerrank,</a>
+<a href=/tags/compiler>compiler</a><div><p>I have written a <a href=https://gist.github.com/macdavid313/39cff0fffeaab93b0d09c314ee89cac7>solution</a> to Hackerrank's problem <a href=https://www.hackerrank.com/challenges/while-language-fp/problem>"While Language"</a> in Common Lisp, solely for fun. Several years ago, I have solved it using OCaml.</p><p>Where does 'fun' come from? In Lisp, it's really easy to construct ASTs. In a lot of scenarios, you can effortlessly <strong>transpile</strong> source code into Lisp forms and then ask your Lisp implementation to analyse, optimise and execute it. For example, after lexing and parsing, I have written a function <code>gen-lisp-code</code> to expose the transpiled Lisp code:</p><div class="src src-lisp"><div class=highlight><pre style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-lisp data-lang=lisp>(<span style=color:#06287e>pprint</span> (<span style=color:#bb60d5>gen-lisp-code</span> <span style=color:#4070a0>&#34;fact := 1 ;
+</span><span style=color:#4070a0>val := 10000 ;
+</span><span style=color:#4070a0>cur := val ;
+</span><span style=color:#4070a0>mod := 1000000007 ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>while ( cur &gt; 1 )
+</span><span style=color:#4070a0>  do
+</span><span style=color:#4070a0>   {
+</span><span style=color:#4070a0>      fact := fact * cur ;
+</span><span style=color:#4070a0>      fact := fact - fact / mod * mod ;
+</span><span style=color:#4070a0>      cur := cur - 1
+</span><span style=color:#4070a0>   } ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>cur := 0&#34;</span>))
+
+<span style=color:#60a0b0;font-style:italic>#|
+</span><span style=color:#60a0b0;font-style:italic>(LAMBDA ()
+</span><span style=color:#60a0b0;font-style:italic>  (LET* ((|cur| 0) (|fact| 0) (|mod| 0) (|val| 0))
+</span><span style=color:#60a0b0;font-style:italic>    (DECLARE (OPTIMIZE SPEED (SPACE 0) (SAFETY 1))
+</span><span style=color:#60a0b0;font-style:italic>             (TYPE (INTEGER 0 2000000000000000000) |cur| |fact| |mod| |val|))
+</span><span style=color:#60a0b0;font-style:italic>    (SETF |fact| 1)
+</span><span style=color:#60a0b0;font-style:italic>    (SETF |val| 10000)
+</span><span style=color:#60a0b0;font-style:italic>    (SETF |cur| |val|)
+</span><span style=color:#60a0b0;font-style:italic>    (SETF |mod| 1000000007)
+</span><span style=color:#60a0b0;font-style:italic>    (DO ()
+</span><span style=color:#60a0b0;font-style:italic>        ((NOT (&gt; |cur| 1)))
+</span><span style=color:#60a0b0;font-style:italic>      (SETF |fact| (* |fact| |cur|))
+</span><span style=color:#60a0b0;font-style:italic>      (SETF |fact| (- |fact| (* (FLOOR (/ |fact| |mod|)) |mod|)))
+</span><span style=color:#60a0b0;font-style:italic>      (SETF |cur| (- |cur| 1)))
+</span><span style=color:#60a0b0;font-style:italic>    (SETF |cur| 0)
+</span><span style=color:#60a0b0;font-style:italic>    (FORMAT T &#34;~a ~d~%&#34; &#34;cur&#34; |cur|)
+</span><span style=color:#60a0b0;font-style:italic>    (FORMAT T &#34;~a ~d~%&#34; &#34;fact&#34; |fact|)
+</span><span style=color:#60a0b0;font-style:italic>    (FORMAT T &#34;~a ~d~%&#34; &#34;mod&#34; |mod|)
+</span><span style=color:#60a0b0;font-style:italic>    (FORMAT T &#34;~a ~d~%&#34; &#34;val&#34; |val|)))
+</span><span style=color:#60a0b0;font-style:italic>|#</span></code></pre></div></div><p>Afterwards, the lambda definition can be sent to Lisp's <code class=verbatim>compile</code> function and generate a Lisp function which can be excuted to print the desired results:</p><div class="src src-lisp"><div class=highlight><pre style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-lisp data-lang=lisp>(<span style=color:#06287e>funcall</span> (<span style=color:#06287e>compile</span> <span style=color:#60add5>nil</span> (<span style=color:#bb60d5>gen-lisp-code</span> <span style=color:#4070a0>&#34;fact := 1 ;
+</span><span style=color:#4070a0>val := 10000 ;
+</span><span style=color:#4070a0>cur := val ;
+</span><span style=color:#4070a0>mod := 1000000007 ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>while ( cur &gt; 1 )
+</span><span style=color:#4070a0>  do
+</span><span style=color:#4070a0>   {
+</span><span style=color:#4070a0>      fact := fact * cur ;
+</span><span style=color:#4070a0>      fact := fact - fact / mod * mod ;
+</span><span style=color:#4070a0>      cur := cur - 1
+</span><span style=color:#4070a0>   } ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>cur := 0&#34;</span>)))
+
+<span style=color:#60a0b0;font-style:italic>;; cur 0</span>
+<span style=color:#60a0b0;font-style:italic>;; fact 531950728</span>
+<span style=color:#60a0b0;font-style:italic>;; mod 1000000007</span>
+<span style=color:#60a0b0;font-style:italic>;; val 10000</span>
+<span style=color:#60a0b0;font-style:italic>;; NIL</span></code></pre></div></div><p>Therefore, my solution is actually not an interpreter but a compiler that transpiles While language code into Lisp forms. In other languages, writing a compiler arguably requires more code; but in Lisp, with its comprehensive run-time system, it becomes much easier.</p><p>The full solution is shown below (or see from <a href=https://gist.github.com/macdavid313/39cff0fffeaab93b0d09c314ee89cac7>gist</a>):</p><div class="src src-lisp"><div class=highlight><pre style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-lisp data-lang=lisp><span style=color:#60a0b0;font-style:italic>;;;; while.lisp</span>
+<span style=color:#60a0b0;font-style:italic>;;;; A solution to Hackerrank&#39;s While Language problem --</span>
+<span style=color:#60a0b0;font-style:italic>;;;; https://www.hackerrank.com/challenges/while-language-fp/problem</span>
+<span style=color:#60a0b0;font-style:italic>;;;; Author: Tianyu Gu (macdavid313@gmail.com)</span>
+
+(<span style=color:#007020>in-package</span> <span style=color:#517918>#:cl-user</span>)
+(<span style=color:#007020>defpackage</span> <span style=color:#517918>#:while</span>
+  (<span style=color:#517918>:use</span> <span style=color:#517918>#:cl</span>)
+  (<span style=color:#517918>:nicknames</span> <span style=color:#517918>#:while-lang</span>)
+  (<span style=color:#517918>:export</span> <span style=color:#517918>#:gen-lisp-code</span> <span style=color:#517918>#:run-program</span>))
+(<span style=color:#007020>in-package</span> <span style=color:#517918>#:while</span>)
+
+<span style=color:#60a0b0;font-style:italic>;;; Part I. Lex</span>
+<span style=color:#60a0b0;font-style:italic>;;; Variable, Numeral,</span>
+<span style=color:#60a0b0;font-style:italic>;;; AOp: Plus, Minus, Mul, Div, Assign</span>
+<span style=color:#60a0b0;font-style:italic>;;; BOp: And, Or,</span>
+<span style=color:#60a0b0;font-style:italic>;;; ROp(&#39;&lt;&#39; | &#39;&gt;&#39;): Gt, Lt,</span>
+<span style=color:#60a0b0;font-style:italic>;;; Other Keywords: True, False, Lparen, Rparen, If, Then, Else,</span>
+<span style=color:#60a0b0;font-style:italic>;;; --------------- Semicolon, While, Do, Lbracket, Rbracket</span>
+(<span style=color:#007020>defstruct</span> <span style=color:#bb60d5>token</span> <span style=color:#007020;font-weight:700>type</span> <span style=color:#bb60d5>val</span>)
+
+(<span style=color:#007020>defmethod</span> <span style=color:#06287e>print-object</span> ((<span style=color:#bb60d5>obj</span> <span style=color:#bb60d5>token</span>) <span style=color:#0e84b5;font-weight:700>stream</span>)
+  (<span style=color:#007020>with-slots</span> (<span style=color:#007020;font-weight:700>type</span> <span style=color:#bb60d5>val</span>) <span style=color:#bb60d5>obj</span>
+    (<span style=color:#007020;font-weight:700>if</span> <span style=color:#bb60d5>val</span>
+        (<span style=color:#06287e>format</span> <span style=color:#0e84b5;font-weight:700>stream</span> <span style=color:#4070a0>&#34;~A(~A)~%&#34;</span> <span style=color:#007020;font-weight:700>type</span> <span style=color:#bb60d5>val</span>)
+      (<span style=color:#06287e>format</span> <span style=color:#0e84b5;font-weight:700>stream</span> <span style=color:#4070a0>&#34;~A~%&#34;</span> <span style=color:#007020;font-weight:700>type</span>))))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>make-var</span> (<span style=color:#bb60d5>var</span>)
+  (<span style=color:#bb60d5>make-token</span> <span style=color:#517918>:type</span> <span style=color:#517918>:var</span> <span style=color:#517918>:val</span> <span style=color:#bb60d5>var</span>))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>make-num</span> (<span style=color:#bb60d5>num</span>)
+  (<span style=color:#bb60d5>make-token</span> <span style=color:#517918>:type</span> <span style=color:#517918>:num</span> <span style=color:#517918>:val</span> <span style=color:#bb60d5>num</span>))
+
+(<span style=color:#007020>defconstant</span> <span style=color:#bb60d5>+keywords-table+</span>
+  (<span style=color:#007020>loop</span> <span style=color:#bb60d5>with</span> <span style=color:#bb60d5>table</span> <span style=color:#06287e>=</span> (<span style=color:#06287e>make-hash-table</span> <span style=color:#517918>:test</span> <span style=color:#517918>&#39;equal</span>)
+        <span style=color:#bb60d5>for</span> (<span style=color:#bb60d5>k</span> <span style=color:#666>.</span> <span style=color:#bb60d5>v</span>) <span style=color:#bb60d5>in</span> <span style=color:#666>&#39;</span>((<span style=color:#4070a0>#\+</span> <span style=color:#666>.</span> <span style=color:#517918>:plus</span>) (<span style=color:#4070a0>#\-</span> <span style=color:#666>.</span> <span style=color:#517918>:minus</span>) (<span style=color:#4070a0>#\*</span> <span style=color:#666>.</span> <span style=color:#517918>:mul</span>) (<span style=color:#4070a0>#\/</span> <span style=color:#666>.</span> <span style=color:#517918>:div</span>)
+                         (<span style=color:#4070a0>&#34;:=&#34;</span> <span style=color:#666>.</span> <span style=color:#517918>:assign</span>) (<span style=color:#4070a0>&#34;and&#34;</span> <span style=color:#666>.</span> <span style=color:#517918>:and</span>) (<span style=color:#4070a0>&#34;or&#34;</span> <span style=color:#666>.</span> <span style=color:#517918>:or</span>) (<span style=color:#4070a0>#\&gt;</span> <span style=color:#666>.</span> <span style=color:#517918>:gt</span>) (<span style=color:#4070a0>#\&lt;</span> <span style=color:#666>.</span> <span style=color:#517918>:lt</span>)
+                         (<span style=color:#4070a0>&#34;true&#34;</span> <span style=color:#666>.</span> <span style=color:#517918>:true</span>) (<span style=color:#4070a0>&#34;false&#34;</span> <span style=color:#666>.</span> <span style=color:#517918>:false</span>) (<span style=color:#4070a0>#\(</span> <span style=color:#666>.</span> <span style=color:#517918>:lparen</span>) (<span style=color:#4070a0>#\)</span> <span style=color:#666>.</span> <span style=color:#517918>:rparen</span>)
+                         (<span style=color:#4070a0>&#34;if&#34;</span> <span style=color:#666>.</span> <span style=color:#517918>:if</span>) (<span style=color:#4070a0>&#34;then&#34;</span> <span style=color:#666>.</span> <span style=color:#517918>:then</span>) (<span style=color:#4070a0>&#34;else&#34;</span> <span style=color:#666>.</span> <span style=color:#517918>:else</span>) (<span style=color:#4070a0>#\;</span> <span style=color:#666>.</span> <span style=color:#517918>:semicolon</span>)
+                         (<span style=color:#4070a0>&#34;while&#34;</span> <span style=color:#666>.</span> <span style=color:#517918>:while</span>) (<span style=color:#4070a0>&#34;do&#34;</span> <span style=color:#666>.</span> <span style=color:#517918>:do</span>) (<span style=color:#4070a0>#\{</span> <span style=color:#666>.</span> <span style=color:#517918>:lbracket</span>) (<span style=color:#4070a0>#\}</span> <span style=color:#666>.</span> <span style=color:#517918>:rbracket</span>))
+        <span style=color:#007020>do</span> (<span style=color:#007020>setf</span> (<span style=color:#06287e>gethash</span> <span style=color:#bb60d5>k</span> <span style=color:#bb60d5>table</span>) <span style=color:#bb60d5>v</span>)
+        <span style=color:#bb60d5>finally</span> (<span style=color:#007020>return</span> <span style=color:#bb60d5>table</span>)))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>make-keyword</span> (<span style=color:#bb60d5>part</span>)
+  (<span style=color:#bb60d5>make-token</span> <span style=color:#517918>:type</span> (<span style=color:#06287e>gethash</span> <span style=color:#bb60d5>part</span> <span style=color:#bb60d5>+keywords-table+</span>)))
+
+(<span style=color:#007020>defstruct</span> <span style=color:#bb60d5>token-stream</span> <span style=color:#bb60d5>tokens</span> <span style=color:#bb60d5>len</span> <span style=color:#bb60d5>ptr</span>)
+
+(<span style=color:#007020>defmethod</span> <span style=color:#06287e>print-object</span> ((<span style=color:#bb60d5>obj</span> <span style=color:#bb60d5>token-stream</span>) <span style=color:#0e84b5;font-weight:700>stream</span>)
+  (<span style=color:#007020>with-slots</span> (<span style=color:#bb60d5>len</span> <span style=color:#bb60d5>ptr</span>) <span style=color:#bb60d5>obj</span>
+    (<span style=color:#06287e>format</span> <span style=color:#0e84b5;font-weight:700>stream</span> <span style=color:#4070a0>&#34;&lt;~d tokens in total, ~d consumed, ~d left.&gt;~%&#34;</span>
+            <span style=color:#bb60d5>len</span> <span style=color:#bb60d5>ptr</span> (<span style=color:#06287e>-</span> <span style=color:#bb60d5>len</span> <span style=color:#bb60d5>ptr</span>))))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>next-token</span> (<span style=color:#bb60d5>tokens</span>)
+  (<span style=color:#007020>with-slots</span> (<span style=color:#bb60d5>tokens</span> <span style=color:#bb60d5>len</span> <span style=color:#bb60d5>ptr</span>) <span style=color:#bb60d5>tokens</span>
+    (<span style=color:#007020>unless</span> (<span style=color:#06287e>=</span> <span style=color:#bb60d5>ptr</span> <span style=color:#bb60d5>len</span>)
+      (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>rt</span> (<span style=color:#06287e>aref</span> <span style=color:#bb60d5>tokens</span> <span style=color:#bb60d5>ptr</span>)))
+        (<span style=color:#007020>incf</span> <span style=color:#bb60d5>ptr</span>)
+        <span style=color:#bb60d5>rt</span>))))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>peek-token</span> (<span style=color:#bb60d5>tokens</span>)
+  (<span style=color:#007020>with-slots</span> (<span style=color:#bb60d5>tokens</span> <span style=color:#bb60d5>len</span> <span style=color:#bb60d5>ptr</span>) <span style=color:#bb60d5>tokens</span>
+    (<span style=color:#007020>unless</span> (<span style=color:#06287e>=</span> <span style=color:#bb60d5>ptr</span> <span style=color:#bb60d5>len</span>)
+      (<span style=color:#06287e>aref</span> <span style=color:#bb60d5>tokens</span> <span style=color:#bb60d5>ptr</span>))))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>expect-token</span> (<span style=color:#bb60d5>tokens</span> <span style=color:#bb60d5>expect</span>)
+  (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>next</span> (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>)))
+    (<span style=color:#007020>unless</span> (<span style=color:#06287e>eq</span> (<span style=color:#bb60d5>token-type</span> <span style=color:#bb60d5>next</span>) <span style=color:#bb60d5>expect</span>)
+      (<span style=color:#902000>error</span> <span style=color:#4070a0>&#34;Parsing error: unexpected token ~A&#34;</span> <span style=color:#bb60d5>next</span>))))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>token-stream-empty-p</span> (<span style=color:#bb60d5>tokens</span>)
+  (<span style=color:#007020>with-slots</span> (<span style=color:#bb60d5>len</span> <span style=color:#bb60d5>ptr</span>) <span style=color:#bb60d5>tokens</span>
+    (<span style=color:#06287e>=</span> <span style=color:#bb60d5>len</span> <span style=color:#bb60d5>ptr</span>)))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>lex-by-pred</span> (<span style=color:#bb60d5>in</span> <span style=color:#bb60d5>pred</span>)
+  (<span style=color:#007020;font-weight:700>declare</span> (<span style=color:#007020;font-weight:700>type</span> <span style=color:#0e84b5;font-weight:700>stream</span> <span style=color:#bb60d5>in</span>))
+  (<span style=color:#007020>with-output-to-string</span> (<span style=color:#bb60d5>o</span>)
+    (<span style=color:#007020>loop</span> <span style=color:#bb60d5>for</span> <span style=color:#bb60d5>c</span> <span style=color:#06287e>=</span> (<span style=color:#06287e>peek-char</span> <span style=color:#60add5>nil</span> <span style=color:#bb60d5>in</span> <span style=color:#60add5>nil</span> <span style=color:#60add5>nil</span>)
+          <span style=color:#bb60d5>while</span> (<span style=color:#007020>and</span> <span style=color:#bb60d5>c</span> (<span style=color:#06287e>funcall</span> <span style=color:#bb60d5>pred</span> <span style=color:#bb60d5>c</span>))
+          <span style=color:#007020>do</span> (<span style=color:#06287e>write-char</span> (<span style=color:#06287e>read-char</span> <span style=color:#bb60d5>in</span>) <span style=color:#bb60d5>o</span>))))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>lex-str</span> (<span style=color:#bb60d5>in</span>)
+  (<span style=color:#007020;font-weight:700>declare</span> (<span style=color:#007020;font-weight:700>type</span> <span style=color:#0e84b5;font-weight:700>stream</span> <span style=color:#bb60d5>in</span>))
+  (<span style=color:#bb60d5>lex-by-pred</span> <span style=color:#bb60d5>in</span> (<span style=color:#007020>lambda</span> (<span style=color:#bb60d5>c</span>) (<span style=color:#06287e>char&lt;=</span> <span style=color:#4070a0>#\a</span> <span style=color:#bb60d5>c</span> <span style=color:#4070a0>#\z</span>))))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>lex-num</span> (<span style=color:#bb60d5>in</span>)
+  (<span style=color:#007020;font-weight:700>declare</span> (<span style=color:#007020;font-weight:700>type</span> <span style=color:#0e84b5;font-weight:700>stream</span> <span style=color:#bb60d5>in</span>))
+  (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>str</span> (<span style=color:#bb60d5>lex-by-pred</span> <span style=color:#bb60d5>in</span> (<span style=color:#007020>lambda</span> (<span style=color:#bb60d5>c</span>) (<span style=color:#06287e>char&lt;=</span> <span style=color:#4070a0>#\0</span> <span style=color:#bb60d5>c</span> <span style=color:#4070a0>#\9</span>)))))
+    (<span style=color:#06287e>parse-integer</span> <span style=color:#bb60d5>str</span> <span style=color:#517918>:junk-allowed</span> <span style=color:#60add5>nil</span>)))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>lex</span> (<span style=color:#bb60d5>in</span>)
+  (<span style=color:#007020;font-weight:700>declare</span> (<span style=color:#007020;font-weight:700>type</span> <span style=color:#0e84b5;font-weight:700>stream</span> <span style=color:#bb60d5>in</span>))
+  (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>tokens</span> (<span style=color:#06287e>make-array</span> <span style=color:#40a070>0</span> <span style=color:#517918>:element-type</span> <span style=color:#517918>&#39;token</span> <span style=color:#517918>:adjustable</span> <span style=color:#60add5>t</span> <span style=color:#517918>:fill-pointer</span> <span style=color:#40a070>0</span>)))
+    (<span style=color:#007020>loop</span> <span style=color:#bb60d5>for</span> <span style=color:#bb60d5>c</span> <span style=color:#06287e>=</span> (<span style=color:#06287e>peek-char</span> <span style=color:#60add5>t</span> <span style=color:#bb60d5>in</span> <span style=color:#60add5>nil</span> <span style=color:#60add5>nil</span>)
+          <span style=color:#bb60d5>while</span> <span style=color:#bb60d5>c</span> <span style=color:#007020>do</span> (<span style=color:#007020>cond</span> (<span style=color:#60a0b0;font-style:italic>;; keywords</span>
+                            (<span style=color:#06287e>find</span> <span style=color:#bb60d5>c</span> <span style=color:#666>#(</span><span style=color:#4070a0>#\+</span> <span style=color:#4070a0>#\-</span> <span style=color:#4070a0>#\*</span> <span style=color:#4070a0>#\/</span> <span style=color:#4070a0>#\&gt;</span> <span style=color:#4070a0>#\&lt;</span> <span style=color:#4070a0>#\(</span> <span style=color:#4070a0>#\)</span> <span style=color:#4070a0>#\;</span> <span style=color:#4070a0>#\{</span> <span style=color:#4070a0>#\}</span>) <span style=color:#517918>:test</span> <span style=color:#517918>&#39;char=</span>)
+                            (<span style=color:#06287e>vector-push-extend</span> (<span style=color:#bb60d5>make-keyword</span> (<span style=color:#06287e>read-char</span> <span style=color:#bb60d5>in</span>)) <span style=color:#bb60d5>tokens</span>))
+                           (<span style=color:#60a0b0;font-style:italic>;; Assign</span>
+                            (<span style=color:#06287e>char=</span> <span style=color:#bb60d5>c</span> <span style=color:#4070a0>#\:</span>)
+                            (<span style=color:#06287e>read-char</span> <span style=color:#bb60d5>in</span>) <span style=color:#60a0b0;font-style:italic>;; #\:</span>
+                            (<span style=color:#06287e>read-char</span> <span style=color:#bb60d5>in</span>) <span style=color:#60a0b0;font-style:italic>;; #\=</span>
+                            (<span style=color:#06287e>vector-push-extend</span> (<span style=color:#bb60d5>make-keyword</span> <span style=color:#4070a0>&#34;:=&#34;</span>) <span style=color:#bb60d5>tokens</span>))
+                           (<span style=color:#60a0b0;font-style:italic>;; a var or a keyword</span>
+                            (<span style=color:#06287e>char&lt;=</span> <span style=color:#4070a0>#\a</span> <span style=color:#bb60d5>c</span> <span style=color:#4070a0>#\z</span>)
+                            (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>str</span> (<span style=color:#bb60d5>lex-str</span> <span style=color:#bb60d5>in</span>)))
+                              (<span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>find</span> <span style=color:#bb60d5>str</span> <span style=color:#666>#(</span><span style=color:#4070a0>&#34;and&#34;</span> <span style=color:#4070a0>&#34;or&#34;</span> <span style=color:#4070a0>&#34;true&#34;</span> <span style=color:#4070a0>&#34;false&#34;</span> <span style=color:#4070a0>&#34;if&#34;</span> <span style=color:#4070a0>&#34;then&#34;</span> <span style=color:#4070a0>&#34;else&#34;</span> <span style=color:#4070a0>&#34;while&#34;</span> <span style=color:#4070a0>&#34;do&#34;</span>) <span style=color:#517918>:test</span> <span style=color:#517918>&#39;string=</span>)
+                                  (<span style=color:#06287e>vector-push-extend</span> (<span style=color:#bb60d5>make-keyword</span> <span style=color:#bb60d5>str</span>) <span style=color:#bb60d5>tokens</span>)
+                                (<span style=color:#06287e>vector-push-extend</span> (<span style=color:#bb60d5>make-var</span> <span style=color:#bb60d5>str</span>) <span style=color:#bb60d5>tokens</span>))))
+                           (<span style=color:#60a0b0;font-style:italic>;; a numeral</span>
+                            (<span style=color:#06287e>char&lt;=</span> <span style=color:#4070a0>#\0</span> <span style=color:#bb60d5>c</span> <span style=color:#4070a0>#\z</span>)
+                            (<span style=color:#06287e>vector-push-extend</span> (<span style=color:#bb60d5>make-num</span> (<span style=color:#bb60d5>lex-num</span> <span style=color:#bb60d5>in</span>)) <span style=color:#bb60d5>tokens</span>)))
+          <span style=color:#bb60d5>finally</span> (<span style=color:#007020>return</span> (<span style=color:#bb60d5>make-token-stream</span> <span style=color:#517918>:tokens</span> <span style=color:#bb60d5>tokens</span> <span style=color:#517918>:len</span> (<span style=color:#06287e>length</span> <span style=color:#bb60d5>tokens</span>) <span style=color:#517918>:ptr</span> <span style=color:#40a070>0</span>)))))
+
+<span style=color:#60a0b0;font-style:italic>;;; Part II. Parse (recursive descent)</span>
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>parse</span> (<span style=color:#bb60d5>tokens</span>)
+  (<span style=color:#007020;font-weight:700>let</span> (<span style=color:#bb60d5>stmts</span>)
+    (<span style=color:#007020;font-weight:700>tagbody</span>
+     <span style=color:#bb60d5>start</span>
+     (<span style=color:#007020>push</span> (<span style=color:#bb60d5>parse-statement</span> <span style=color:#bb60d5>tokens</span>) <span style=color:#bb60d5>stmts</span>)
+     (<span style=color:#007020;font-weight:700>if</span> (<span style=color:#007020>and</span> (<span style=color:#bb60d5>peek-token</span> <span style=color:#bb60d5>tokens</span>)
+              (<span style=color:#06287e>eq</span> <span style=color:#517918>:semicolon</span> (<span style=color:#bb60d5>token-type</span> (<span style=color:#bb60d5>peek-token</span> <span style=color:#bb60d5>tokens</span>))))
+         (<span style=color:#007020;font-weight:700>progn</span>
+           (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>)
+           (<span style=color:#007020;font-weight:700>go</span> <span style=color:#bb60d5>start</span>))
+       (<span style=color:#007020;font-weight:700>return-from</span> <span style=color:#bb60d5>parse</span> (<span style=color:#06287e>nreverse</span> <span style=color:#bb60d5>stmts</span>))))))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>parse-statement</span> (<span style=color:#bb60d5>tokens</span>)
+  (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>token</span> (<span style=color:#bb60d5>peek-token</span> <span style=color:#bb60d5>tokens</span>)))
+    (<span style=color:#007020>case</span> (<span style=color:#bb60d5>token-type</span> <span style=color:#bb60d5>token</span>)
+      (<span style=color:#517918>:var</span> (<span style=color:#bb60d5>parse-assign</span> <span style=color:#bb60d5>tokens</span>))
+      (<span style=color:#517918>:if</span> (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>)
+          (<span style=color:#bb60d5>parse-if</span> <span style=color:#bb60d5>tokens</span>))
+      (<span style=color:#517918>:while</span> (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>)
+       (<span style=color:#bb60d5>parse-while</span> <span style=color:#bb60d5>tokens</span>))
+      (<span style=color:#60add5>t</span> (<span style=color:#902000>error</span> <span style=color:#4070a0>&#34;Parsing error.&#34;</span>)))))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>parse-assign</span> (<span style=color:#bb60d5>tokens</span>)
+  (<span style=color:#007020;font-weight:700>let</span> (<span style=color:#bb60d5>var</span> <span style=color:#bb60d5>val</span>)
+    (<span style=color:#007020;font-weight:700>setq</span> <span style=color:#bb60d5>var</span> (<span style=color:#06287e>intern</span> (<span style=color:#bb60d5>token-val</span> (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>)) <span style=color:#517918>:while</span>))
+    (<span style=color:#bb60d5>expect-token</span> <span style=color:#bb60d5>tokens</span> <span style=color:#517918>:assign</span>)
+    (<span style=color:#007020;font-weight:700>setq</span> <span style=color:#bb60d5>val</span> (<span style=color:#bb60d5>parse-aexpr</span> <span style=color:#bb60d5>tokens</span>))
+    <span style=color:#666>`</span>(<span style=color:#007020>setf</span> <span style=color:#666>,</span><span style=color:#bb60d5>var</span> <span style=color:#666>,</span><span style=color:#bb60d5>val</span>)))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>parse-aexpr</span> (<span style=color:#bb60d5>tokens</span>)
+  (<span style=color:#007020;font-weight:700>labels</span> ((<span style=color:#bb60d5>parse-factor</span> (<span style=color:#bb60d5>tokens</span>)
+             (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>token</span> (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>)))
+               (<span style=color:#007020>case</span> (<span style=color:#bb60d5>token-type</span> <span style=color:#bb60d5>token</span>)
+                 (<span style=color:#517918>:var</span> (<span style=color:#06287e>intern</span> (<span style=color:#bb60d5>token-val</span> <span style=color:#bb60d5>token</span>) <span style=color:#517918>:while</span>))
+                 (<span style=color:#517918>:num</span> (<span style=color:#bb60d5>token-val</span> <span style=color:#bb60d5>token</span>))
+                 (<span style=color:#517918>:lparen</span> (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>arith</span> (<span style=color:#bb60d5>parse-aexpr</span> <span style=color:#bb60d5>tokens</span>)))
+                            (<span style=color:#bb60d5>expect-token</span> <span style=color:#bb60d5>tokens</span> <span style=color:#517918>:rparen</span>)
+                            <span style=color:#bb60d5>arith</span>))
+                 (<span style=color:#60add5>t</span> (<span style=color:#902000>error</span> <span style=color:#4070a0>&#34;Parsing error&#34;</span>)))))
+           (<span style=color:#bb60d5>parse-term</span> (<span style=color:#bb60d5>tokens</span>)
+             (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>left</span> (<span style=color:#bb60d5>parse-factor</span> <span style=color:#bb60d5>tokens</span>)))
+               (<span style=color:#007020;font-weight:700>tagbody</span>
+                <span style=color:#bb60d5>start</span>
+                (<span style=color:#007020>cond</span> ((<span style=color:#007020>and</span> (<span style=color:#bb60d5>peek-token</span> <span style=color:#bb60d5>tokens</span>)
+                            (<span style=color:#06287e>eq</span> <span style=color:#517918>:mul</span> (<span style=color:#bb60d5>token-type</span> (<span style=color:#bb60d5>peek-token</span> <span style=color:#bb60d5>tokens</span>))))
+                       (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>)
+                       (<span style=color:#007020;font-weight:700>setq</span> <span style=color:#bb60d5>left</span> <span style=color:#666>`</span>(<span style=color:#06287e>*</span> <span style=color:#666>,</span><span style=color:#bb60d5>left</span> <span style=color:#666>,</span>(<span style=color:#bb60d5>parse-factor</span> <span style=color:#bb60d5>tokens</span>)))
+                       (<span style=color:#007020;font-weight:700>go</span> <span style=color:#bb60d5>start</span>))
+                      ((<span style=color:#007020>and</span> (<span style=color:#bb60d5>peek-token</span> <span style=color:#bb60d5>tokens</span>)
+                            (<span style=color:#06287e>eq</span> <span style=color:#517918>:div</span> (<span style=color:#bb60d5>token-type</span> (<span style=color:#bb60d5>peek-token</span> <span style=color:#bb60d5>tokens</span>))))
+                       (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>)
+                       (<span style=color:#007020;font-weight:700>setq</span> <span style=color:#bb60d5>left</span> <span style=color:#666>`</span>(<span style=color:#06287e>floor</span> (<span style=color:#06287e>/</span> <span style=color:#666>,</span><span style=color:#bb60d5>left</span> <span style=color:#666>,</span>(<span style=color:#bb60d5>parse-factor</span> <span style=color:#bb60d5>tokens</span>))))
+                       (<span style=color:#007020;font-weight:700>go</span> <span style=color:#bb60d5>start</span>))
+                      (<span style=color:#60add5>t</span> (<span style=color:#007020;font-weight:700>return-from</span> <span style=color:#bb60d5>parse-term</span> <span style=color:#bb60d5>left</span>)))))))
+    (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>left</span> (<span style=color:#bb60d5>parse-term</span> <span style=color:#bb60d5>tokens</span>)))
+      (<span style=color:#007020;font-weight:700>tagbody</span>
+       <span style=color:#bb60d5>start</span>
+       (<span style=color:#007020>cond</span> ((<span style=color:#007020>and</span> (<span style=color:#bb60d5>peek-token</span> <span style=color:#bb60d5>tokens</span>)
+                   (<span style=color:#06287e>eq</span> <span style=color:#517918>:plus</span> (<span style=color:#bb60d5>token-type</span> (<span style=color:#bb60d5>peek-token</span> <span style=color:#bb60d5>tokens</span>))))
+              (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>)
+              (<span style=color:#007020;font-weight:700>setq</span> <span style=color:#bb60d5>left</span> <span style=color:#666>`</span>(<span style=color:#06287e>+</span> <span style=color:#666>,</span><span style=color:#bb60d5>left</span> <span style=color:#666>,</span>(<span style=color:#bb60d5>parse-term</span> <span style=color:#bb60d5>tokens</span>)))
+              (<span style=color:#007020;font-weight:700>go</span> <span style=color:#bb60d5>start</span>))
+             ((<span style=color:#007020>and</span> (<span style=color:#bb60d5>peek-token</span> <span style=color:#bb60d5>tokens</span>)
+                   (<span style=color:#06287e>eq</span> <span style=color:#517918>:minus</span> (<span style=color:#bb60d5>token-type</span> (<span style=color:#bb60d5>peek-token</span> <span style=color:#bb60d5>tokens</span>))))
+              (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>)
+              (<span style=color:#007020;font-weight:700>setq</span> <span style=color:#bb60d5>left</span> <span style=color:#666>`</span>(<span style=color:#06287e>-</span> <span style=color:#666>,</span><span style=color:#bb60d5>left</span> <span style=color:#666>,</span>(<span style=color:#bb60d5>parse-term</span> <span style=color:#bb60d5>tokens</span>)))
+              (<span style=color:#007020;font-weight:700>go</span> <span style=color:#bb60d5>start</span>))
+             (<span style=color:#60add5>t</span> (<span style=color:#007020;font-weight:700>return-from</span> <span style=color:#bb60d5>parse-aexpr</span> <span style=color:#bb60d5>left</span>)))))))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>parse-if</span> (<span style=color:#bb60d5>tokens</span>)
+  (<span style=color:#007020;font-weight:700>let</span> (<span style=color:#bb60d5>test</span> <span style=color:#bb60d5>then</span> <span style=color:#bb60d5>else</span>)
+    (<span style=color:#007020;font-weight:700>setq</span> <span style=color:#bb60d5>test</span> (<span style=color:#bb60d5>parse-bexpr</span> <span style=color:#bb60d5>tokens</span>))
+    (<span style=color:#bb60d5>expect-token</span> <span style=color:#bb60d5>tokens</span> <span style=color:#517918>:then</span>)
+    (<span style=color:#bb60d5>expect-token</span> <span style=color:#bb60d5>tokens</span> <span style=color:#517918>:lbracket</span>)
+    (<span style=color:#007020;font-weight:700>setq</span> <span style=color:#bb60d5>then</span> (<span style=color:#bb60d5>parse</span> <span style=color:#bb60d5>tokens</span>))
+    (<span style=color:#bb60d5>expect-token</span> <span style=color:#bb60d5>tokens</span> <span style=color:#517918>:rbracket</span>)
+    (<span style=color:#bb60d5>expect-token</span> <span style=color:#bb60d5>tokens</span> <span style=color:#517918>:else</span>)
+    (<span style=color:#bb60d5>expect-token</span> <span style=color:#bb60d5>tokens</span> <span style=color:#517918>:lbracket</span>)
+    (<span style=color:#007020;font-weight:700>setq</span> <span style=color:#bb60d5>else</span> (<span style=color:#bb60d5>parse</span> <span style=color:#bb60d5>tokens</span>))
+    (<span style=color:#bb60d5>expect-token</span> <span style=color:#bb60d5>tokens</span> <span style=color:#517918>:rbracket</span>)
+    <span style=color:#666>`</span>(<span style=color:#007020;font-weight:700>if</span> <span style=color:#666>,</span><span style=color:#bb60d5>test</span>
+         (<span style=color:#007020;font-weight:700>progn</span> <span style=color:#666>,@</span><span style=color:#bb60d5>then</span>)
+       (<span style=color:#007020;font-weight:700>progn</span> <span style=color:#666>,@</span><span style=color:#bb60d5>else</span>))))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>parse-while</span> (<span style=color:#bb60d5>tokens</span>)
+  (<span style=color:#007020;font-weight:700>let</span> (<span style=color:#bb60d5>test</span> <span style=color:#bb60d5>body</span>)
+    (<span style=color:#007020;font-weight:700>setq</span> <span style=color:#bb60d5>test</span> (<span style=color:#bb60d5>parse-bexpr</span> <span style=color:#bb60d5>tokens</span>))
+    (<span style=color:#bb60d5>expect-token</span> <span style=color:#bb60d5>tokens</span> <span style=color:#517918>:do</span>)
+    (<span style=color:#bb60d5>expect-token</span> <span style=color:#bb60d5>tokens</span> <span style=color:#517918>:lbracket</span>)
+    (<span style=color:#007020;font-weight:700>setq</span> <span style=color:#bb60d5>body</span> (<span style=color:#bb60d5>parse</span> <span style=color:#bb60d5>tokens</span>))
+    (<span style=color:#bb60d5>expect-token</span> <span style=color:#bb60d5>tokens</span> <span style=color:#517918>:rbracket</span>)
+    <span style=color:#666>`</span>(<span style=color:#007020>do</span> ()
+         ((<span style=color:#06287e>not</span> <span style=color:#666>,</span><span style=color:#bb60d5>test</span>))
+       <span style=color:#666>,@</span><span style=color:#bb60d5>body</span>)))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>parse-bexpr</span> (<span style=color:#bb60d5>tokens</span>)
+  (<span style=color:#007020;font-weight:700>labels</span> ((<span style=color:#bb60d5>parse-bexpr/1</span> ()
+             (<span style=color:#007020>case</span> (<span style=color:#bb60d5>token-type</span> (<span style=color:#bb60d5>peek-token</span> <span style=color:#bb60d5>tokens</span>))
+               (<span style=color:#517918>:true</span> (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>) <span style=color:#60add5>t</span>)
+               (<span style=color:#517918>:false</span> (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>) <span style=color:#60add5>nil</span>)
+               (<span style=color:#517918>:lparen</span> (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>)
+                (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>bexpr</span> (<span style=color:#bb60d5>parse-bexpr</span> <span style=color:#bb60d5>tokens</span>)))
+                  (<span style=color:#bb60d5>expect-token</span> <span style=color:#bb60d5>tokens</span> <span style=color:#517918>:rparen</span>)
+                  <span style=color:#bb60d5>bexpr</span>))
+               (<span style=color:#60add5>t</span> (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>left</span> (<span style=color:#bb60d5>parse-aexpr</span> <span style=color:#bb60d5>tokens</span>)))
+                    (<span style=color:#007020>case</span> (<span style=color:#bb60d5>token-type</span> (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>))
+                      (<span style=color:#517918>:gt</span> <span style=color:#666>`</span>(<span style=color:#06287e>&gt;</span> <span style=color:#666>,</span><span style=color:#bb60d5>left</span> <span style=color:#666>,</span>(<span style=color:#bb60d5>parse-aexpr</span> <span style=color:#bb60d5>tokens</span>)))
+                      (<span style=color:#517918>:lt</span> <span style=color:#666>`</span>(<span style=color:#06287e>&lt;</span> <span style=color:#666>,</span><span style=color:#bb60d5>left</span> <span style=color:#666>,</span>(<span style=color:#bb60d5>parse-aexpr</span> <span style=color:#bb60d5>tokens</span>)))
+                      (<span style=color:#60add5>t</span> (<span style=color:#902000>error</span> <span style=color:#4070a0>&#34;Parsing error&#34;</span>))))))))
+    (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>left</span> (<span style=color:#bb60d5>parse-bexpr/1</span>)))
+      (<span style=color:#007020;font-weight:700>tagbody</span>
+       <span style=color:#bb60d5>start</span>
+       (<span style=color:#007020>case</span> (<span style=color:#bb60d5>token-type</span> (<span style=color:#bb60d5>peek-token</span> <span style=color:#bb60d5>tokens</span>))
+         (<span style=color:#517918>:and</span> (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>)
+          (<span style=color:#007020;font-weight:700>setq</span> <span style=color:#bb60d5>left</span> <span style=color:#666>`</span>(<span style=color:#007020>and</span> <span style=color:#666>,</span><span style=color:#bb60d5>left</span> <span style=color:#666>,</span>(<span style=color:#bb60d5>parse-bexpr/1</span>)))
+          (<span style=color:#007020;font-weight:700>go</span> <span style=color:#bb60d5>start</span>))
+         (<span style=color:#517918>:or</span> (<span style=color:#bb60d5>next-token</span> <span style=color:#bb60d5>tokens</span>)
+          (<span style=color:#007020;font-weight:700>setq</span> <span style=color:#bb60d5>left</span> <span style=color:#666>`</span>(<span style=color:#007020>or</span> <span style=color:#666>,</span><span style=color:#bb60d5>left</span> <span style=color:#666>,</span>(<span style=color:#bb60d5>parse-bexpr/1</span>)))
+          (<span style=color:#007020;font-weight:700>go</span> <span style=color:#bb60d5>start</span>))
+         (<span style=color:#60add5>t</span> (<span style=color:#007020;font-weight:700>return-from</span> <span style=color:#bb60d5>parse-bexpr</span> <span style=color:#bb60d5>left</span>)))))))
+
+
+<span style=color:#60a0b0;font-style:italic>;;; Part III: Compile (transpile, actually)</span>
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>generate-symbol-table</span> (<span style=color:#bb60d5>stmts</span>)
+  (<span style=color:#007020>when</span> <span style=color:#bb60d5>stmts</span>
+    (<span style=color:#007020>loop</span> <span style=color:#bb60d5>with</span> <span style=color:#bb60d5>syms</span> <span style=color:#06287e>=</span> (<span style=color:#0e84b5;font-weight:700>list</span>)
+          <span style=color:#bb60d5>for</span> <span style=color:#bb60d5>stmt</span> <span style=color:#bb60d5>in</span> <span style=color:#bb60d5>stmts</span>
+          <span style=color:#007020>do</span> (<span style=color:#007020>case</span> (<span style=color:#06287e>car</span> <span style=color:#bb60d5>stmt</span>)
+               (<span style=color:#007020>setf</span> (<span style=color:#007020>pushnew</span> (<span style=color:#06287e>second</span> <span style=color:#bb60d5>stmt</span>) <span style=color:#bb60d5>syms</span> <span style=color:#517918>:test</span> <span style=color:#517918>&#39;eq</span>))
+               (<span style=color:#007020>do</span> (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>res</span> (<span style=color:#bb60d5>generate-symbol-table</span> (<span style=color:#06287e>cdddr</span> <span style=color:#bb60d5>stmt</span>))))
+                     (<span style=color:#007020>when</span> <span style=color:#bb60d5>res</span>
+                       (<span style=color:#007020>setf</span> <span style=color:#bb60d5>syms</span> (<span style=color:#06287e>concatenate</span> <span style=color:#517918>&#39;list</span> <span style=color:#bb60d5>syms</span> <span style=color:#bb60d5>res</span>)))))
+               (<span style=color:#007020;font-weight:700>if</span> (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>res1</span> (<span style=color:#bb60d5>generate-symbol-table</span> (<span style=color:#06287e>cdr</span> (<span style=color:#06287e>third</span> <span style=color:#bb60d5>stmt</span>))))
+                         (<span style=color:#bb60d5>res2</span> (<span style=color:#bb60d5>generate-symbol-table</span> (<span style=color:#06287e>cdr</span> (<span style=color:#06287e>fourth</span> <span style=color:#bb60d5>stmt</span>)))))
+                     (<span style=color:#007020>setf</span> <span style=color:#bb60d5>syms</span> (<span style=color:#06287e>concatenate</span> <span style=color:#517918>&#39;list</span> <span style=color:#bb60d5>syms</span> <span style=color:#bb60d5>res1</span> <span style=color:#bb60d5>res2</span>)))))
+          <span style=color:#bb60d5>finally</span> (<span style=color:#007020>return</span> (<span style=color:#06287e>sort</span> (<span style=color:#06287e>delete-duplicates</span> <span style=color:#bb60d5>syms</span> <span style=color:#517918>:test</span> <span style=color:#517918>&#39;eq</span>)
+                                <span style=color:#517918>&#39;string&lt;</span> <span style=color:#517918>:key</span> <span style=color:#517918>&#39;symbol-name</span>)))))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>gen-lisp-code</span> (<span style=color:#bb60d5>program</span>)
+  (<span style=color:#007020;font-weight:700>let*</span> ((<span style=color:#bb60d5>stmts</span> (<span style=color:#bb60d5>parse</span> (<span style=color:#007020>with-input-from-string</span> (<span style=color:#bb60d5>in</span> <span style=color:#bb60d5>program</span>)
+                         (<span style=color:#bb60d5>lex</span> <span style=color:#bb60d5>in</span>))))
+         (<span style=color:#bb60d5>syms</span> (<span style=color:#bb60d5>generate-symbol-table</span> <span style=color:#bb60d5>stmts</span>)))
+    <span style=color:#666>`</span>(<span style=color:#007020>lambda</span> ()
+       (<span style=color:#007020;font-weight:700>let*</span> <span style=color:#666>,</span>(<span style=color:#06287e>mapcar</span> (<span style=color:#007020>lambda</span> (<span style=color:#bb60d5>sym</span>) <span style=color:#666>`</span>(<span style=color:#666>,</span><span style=color:#bb60d5>sym</span> <span style=color:#40a070>0</span>)) <span style=color:#bb60d5>syms</span>)
+         (<span style=color:#007020;font-weight:700>declare</span> (<span style=color:#007020;font-weight:700>optimize</span> <span style=color:#bb60d5>speed</span> (<span style=color:#bb60d5>space</span> <span style=color:#40a070>0</span>) (<span style=color:#bb60d5>safety</span> <span style=color:#40a070>1</span>))
+                  (<span style=color:#007020;font-weight:700>type</span> (<span style=color:#0e84b5;font-weight:700>integer</span> <span style=color:#40a070>0</span> <span style=color:#666>#.</span>(<span style=color:#06287e>*</span> <span style=color:#40a070>2</span> (<span style=color:#06287e>expt</span> <span style=color:#40a070>10</span> <span style=color:#40a070>18</span>))) <span style=color:#666>,@</span><span style=color:#bb60d5>syms</span>))
+         <span style=color:#666>,@</span><span style=color:#bb60d5>stmts</span>
+         <span style=color:#666>,@</span>(<span style=color:#06287e>mapcar</span> (<span style=color:#007020>lambda</span> (<span style=color:#bb60d5>sym</span>)
+                     <span style=color:#666>`</span>(<span style=color:#06287e>format</span> <span style=color:#60add5>t</span> <span style=color:#4070a0>&#34;~a ~d~%&#34;</span> <span style=color:#666>,</span>(<span style=color:#06287e>symbol-name</span> <span style=color:#bb60d5>sym</span>) <span style=color:#666>,</span><span style=color:#bb60d5>sym</span>))
+                   <span style=color:#bb60d5>syms</span>)))))
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>run-program</span> (<span style=color:#bb60d5>program</span>)
+  (<span style=color:#007020;font-weight:700>let</span> ((<span style=color:#bb60d5>fn</span> (<span style=color:#06287e>compile</span> <span style=color:#517918>&#39;nil</span> (<span style=color:#bb60d5>gen-lisp-code</span> <span style=color:#bb60d5>program</span>))))
+    (<span style=color:#06287e>funcall</span> <span style=color:#bb60d5>fn</span>)))
+
+<span style=color:#60a0b0;font-style:italic>;;; Entry point</span>
+(<span style=color:#007020>in-package</span> <span style=color:#517918>#:cl-user</span>)
+
+(<span style=color:#007020>defun</span> <span style=color:#bb60d5>main</span> ()
+  (<span style=color:#bb60d5>while:run-program</span>
+   (<span style=color:#007020>with-output-to-string</span> (<span style=color:#bb60d5>o</span>)
+     (<span style=color:#007020>loop</span> <span style=color:#bb60d5>for</span> <span style=color:#bb60d5>line</span> <span style=color:#06287e>=</span> (<span style=color:#06287e>read-line</span> <span style=color:#60add5>t</span> <span style=color:#60add5>nil</span> <span style=color:#60add5>nil</span>)
+           <span style=color:#bb60d5>while</span> <span style=color:#bb60d5>line</span> <span style=color:#007020>do</span> (<span style=color:#06287e>write-line</span> <span style=color:#bb60d5>line</span> <span style=color:#bb60d5>o</span>)))))
+
+<span style=color:#60a0b0;font-style:italic>;;; uncomment this line if you wanto to submit it to Hackerrank</span>
+<span style=color:#60a0b0;font-style:italic>;; (main)</span>
+
+<span style=color:#60a0b0;font-style:italic>;;; test case</span>
+(<span style=color:#007020>defvar</span> *test-0*
+  <span style=color:#4070a0>&#34;base := 2 ;
+</span><span style=color:#4070a0>power := 100 ;
+</span><span style=color:#4070a0>prime := 1000000007 ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>res := 1 ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>while ( power &gt; 0 ) do {
+</span><span style=color:#4070a0>        parity := power - ( power / 2 * 2 ) ;
+</span><span style=color:#4070a0>        if ( power - power / 2 * 2 &gt; 0 ) then
+</span><span style=color:#4070a0>        {
+</span><span style=color:#4070a0>            res := res * base ;
+</span><span style=color:#4070a0>            res := res - res / prime * prime
+</span><span style=color:#4070a0>        }
+</span><span style=color:#4070a0>        else
+</span><span style=color:#4070a0>        {
+</span><span style=color:#4070a0>            res := res
+</span><span style=color:#4070a0>        } ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>    base := base * base ;
+</span><span style=color:#4070a0>    base := base - base / prime * prime ;
+</span><span style=color:#4070a0>    power :=  power / 2
+</span><span style=color:#4070a0>}&#34;</span>)
+
+(<span style=color:#007020>defvar</span> *test-1*
+  <span style=color:#4070a0>&#34;fact := 1 ;
+</span><span style=color:#4070a0>val := 10000 ;
+</span><span style=color:#4070a0>cur := val ;
+</span><span style=color:#4070a0>mod := 1000000007 ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>while ( cur &gt; 1 )
+</span><span style=color:#4070a0>  do
+</span><span style=color:#4070a0>   {
+</span><span style=color:#4070a0>      fact := fact * cur ;
+</span><span style=color:#4070a0>      fact := fact - fact / mod * mod ;
+</span><span style=color:#4070a0>      cur := cur - 1
+</span><span style=color:#4070a0>   } ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>cur := 0&#34;</span>)
+
+(<span style=color:#007020>defvar</span> *test-2*
+  <span style=color:#4070a0>&#34;a := 267815000 ;
+</span><span style=color:#4070a0>b := 556456000 ;
+</span><span style=color:#4070a0>while ( b &gt; 0 ) do
+</span><span style=color:#4070a0> {
+</span><span style=color:#4070a0>	t := b ;
+</span><span style=color:#4070a0>    b := a - ( a / b ) * b ;
+</span><span style=color:#4070a0>	a := t
+</span><span style=color:#4070a0>} ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>res  := a&#34;</span>)
+
+(<span style=color:#007020>defvar</span> *test-3*
+  <span style=color:#4070a0>&#34;a := 10 ;
+</span><span style=color:#4070a0>b := 100 ;
+</span><span style=color:#4070a0>c := 1000 ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>if ( a &gt; b and a &gt; c ) then {
+</span><span style=color:#4070a0>    largest := a
+</span><span style=color:#4070a0>}
+</span><span style=color:#4070a0>else {
+</span><span style=color:#4070a0>    if ( b &gt; a and b &gt; c ) then {
+</span><span style=color:#4070a0>        largest := b
+</span><span style=color:#4070a0>    }
+</span><span style=color:#4070a0>    else {
+</span><span style=color:#4070a0>        largest := c
+</span><span style=color:#4070a0>    }
+</span><span style=color:#4070a0> }
+</span><span style=color:#4070a0>;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>if ( a &gt; b and a &lt; c ) then {
+</span><span style=color:#4070a0>    middle := a
+</span><span style=color:#4070a0>}
+</span><span style=color:#4070a0>else {
+</span><span style=color:#4070a0>    if ( b &gt; a and b &lt; c ) then {
+</span><span style=color:#4070a0>        middle := b
+</span><span style=color:#4070a0>    }
+</span><span style=color:#4070a0>    else {
+</span><span style=color:#4070a0>        middle := c
+</span><span style=color:#4070a0>    }
+</span><span style=color:#4070a0>} ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>if ( a &lt; b and a &lt; c ) then {
+</span><span style=color:#4070a0>    smallest := a
+</span><span style=color:#4070a0>}
+</span><span style=color:#4070a0>else {
+</span><span style=color:#4070a0>    if ( b &lt; a and b &lt; c ) then {
+</span><span style=color:#4070a0>        smallest := b
+</span><span style=color:#4070a0>    }
+</span><span style=color:#4070a0>    else {
+</span><span style=color:#4070a0>        smallest := c
+</span><span style=color:#4070a0>    }
+</span><span style=color:#4070a0>}&#34;</span>)
+
+(<span style=color:#007020>defvar</span> *test-4*
+  <span style=color:#4070a0>&#34;sum := 0 ;
+</span><span style=color:#4070a0>cur := 0 ;
+</span><span style=color:#4070a0>while ( cur &lt; 10000 ) do
+</span><span style=color:#4070a0>{
+</span><span style=color:#4070a0>    cur := cur + 1 ;
+</span><span style=color:#4070a0>    sum := sum + cur
+</span><span style=color:#4070a0>} ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>p := 1000000007 ;
+</span><span style=color:#4070a0>cur := 0 ;
+</span><span style=color:#4070a0>prod := 1 ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>while ( cur &lt; 10000 ) do
+</span><span style=color:#4070a0>{
+</span><span style=color:#4070a0>    cur := cur + 1 ;
+</span><span style=color:#4070a0>    prod := prod * cur ;
+</span><span style=color:#4070a0>    prod := prod - prod / p * p
+</span><span style=color:#4070a0>}&#34;</span>)
+
+(<span style=color:#007020>defvar</span> *test-5*
+  <span style=color:#4070a0>&#34;a := 1000 ;
+</span><span style=color:#4070a0>b := 2000 ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>c := b ;
+</span><span style=color:#4070a0>b := a ;
+</span><span style=color:#4070a0>a := c ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>c := 0&#34;</span>)
+
+(<span style=color:#007020>defvar</span> *test-6*
+  <span style=color:#4070a0>&#34;a := 10 ;
+</span><span style=color:#4070a0>b := 100 ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>if ( a &lt; b ) then
+</span><span style=color:#4070a0>    {
+</span><span style=color:#4070a0>        min := a ;
+</span><span style=color:#4070a0>        max := b
+</span><span style=color:#4070a0>    }
+</span><span style=color:#4070a0>else {
+</span><span style=color:#4070a0>    min := b ;
+</span><span style=color:#4070a0>    max := a
+</span><span style=color:#4070a0>    }&#34;</span>)
+
+(<span style=color:#007020>defvar</span> *test-7*
+  <span style=color:#4070a0>&#34;i := 0 ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>oddsum := 0 ;
+</span><span style=color:#4070a0>evensum := 0 ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>while ( i &lt; 100 ) do
+</span><span style=color:#4070a0>{
+</span><span style=color:#4070a0>    j := 0 ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>    while ( j &lt; i ) do {
+</span><span style=color:#4070a0>        if ( j - j / 2 * 2 &gt; 0 ) then {
+</span><span style=color:#4070a0>            oddsum := oddsum + j
+</span><span style=color:#4070a0>        }
+</span><span style=color:#4070a0>        else {
+</span><span style=color:#4070a0>            evensum := evensum + j
+</span><span style=color:#4070a0>        } ;
+</span><span style=color:#4070a0>        j := j + 1
+</span><span style=color:#4070a0>    } ;
+</span><span style=color:#4070a0>
+</span><span style=color:#4070a0>    i := i + 1
+</span><span style=color:#4070a0>}&#34;</span>)</code></pre></div></div></div></article></main><aside><div><div><h3>LATEST POSTS</h3></div><div><ul><li><a href=/posts/10-years-after-gaokao/>十年后，回望高考和高中的时光</a></li><li><a href=/posts/wind-river-movie/>猎凶风河谷（电影）</a></li><li><a href=/posts/ibm-model-m-arrived/>IBM Model M 来了</a></li><li><a href=/posts/from-push-up-to-pull-up/>从"俯卧撑"到"引体向上"</a></li><li><a href=/posts/lisp-while-lang/>Common Lisp Solution to While Language</a></li></ul></div></div></aside><footer><p>&copy; 2021 <a href=https://macdavid313.xyz/><b>gty</b></a>.
+<a href=mailto:macdavid313@gmail.com><b>email</b></a>.
+<a href=/assets/pgp-public.txt><b>PGP</b></a>.
+<a href=https://github.com/macdavid313><b>github</b></a>.
+<a href=https://www.instagram.com/davidgu357/><b>instagram</b></a>.</p></footer></body></html>
